@@ -197,7 +197,7 @@ proc createNetworkState[NetworkNode, NetworkState](network: NetworkNode): RootRe
   initProtocolState(res, network)
   return cast[RootRef](res)
 
-proc expectBlockWithProcs*(n: NimNode): seq[NimNode] =
+proc expectBlockWithProcs*(n: NimNode): seq[NimNode] {.raises: [Exception].} =
   template helperName: auto = $n[0]
 
   if n.len != 2 or n[1].kind != nnkStmtList:
@@ -249,7 +249,7 @@ proc outputParamType*(msg: Message): NimNode =
   if outputParam != nil:
     return outputParam[1]
 
-proc refreshParam(n: NimNode): NimNode =
+proc refreshParam(n: NimNode): NimNode {.raises: [Exception].} =
   result = copyNimTree(n)
   if n.kind == nnkIdentDefs:
     for i in 0..<n.len-2:
@@ -261,7 +261,7 @@ iterator typedInputParams(procDef: NimNode, skip = 0): (NimNode, NimNode) =
     if not isOutputParamName(paramName):
       yield (paramName, paramType)
 
-proc copyInputParams(params: NimNode): NimNode =
+proc copyInputParams(params: NimNode): NimNode {.raises: [Exception].} =
   result = newTree(params.kind)
   for param in params:
     if not isOutputParam(param):
@@ -278,7 +278,7 @@ proc chooseFieldType(n: NimNode): NimNode =
     result = n.copyNimTree
     result[0] = ident("seq")
 
-proc verifyStateType(t: NimNode): NimNode =
+proc verifyStateType(t: NimNode): NimNode {.raises: [Exception].} =
   result = t[1]
   if result.kind == nnkSym and $result == "nil":
     return nil
@@ -411,7 +411,7 @@ proc needsSingleParamInlining(msg: Message): bool =
   msg.recBody.kind == nnkDistinctTy
 
 proc newMsg(protocol: P2PProtocol, kind: MessageKind, id: int,
-            procDef: NimNode, response: Message = nil): Message =
+            procDef: NimNode, response: Message = nil): Message {.raises: [Exception].} =
 
   if procDef[0].kind == nnkPostfix:
     error("p2pProcotol procs are public by default. " &
@@ -490,7 +490,7 @@ proc newMsg(protocol: P2PProtocol, kind: MessageKind, id: int,
 proc isVoid(t: NimNode): bool =
   t.kind == nnkEmpty or eqIdent(t, "void")
 
-proc addMsg(p: P2PProtocol, id: int, procDef: NimNode) =
+proc addMsg(p: P2PProtocol, id: int, procDef: NimNode) {.raises: [Exception].} =
   var
     returnType = procDef.params[0]
     hasReturnValue = not isVoid(returnType)
@@ -541,7 +541,7 @@ proc requestResultType*(msg: Message): NimNode =
 proc createSendProc*(msg: Message,
                      procType = nnkProcDef,
                      isRawSender = false,
-                     nameSuffix = ""): SendProc =
+                     nameSuffix = ""): SendProc {.raises: [Exception].} =
   # TODO: file an issue:
   # macros.newProc and macros.params doesn't work with nnkMacroDef
 
@@ -631,7 +631,7 @@ proc setBody*(sendProc: SendProc, body: NimNode) =
     msg.protocol.outSendProcs.add sendProc.extraDefs
 
 proc writeParamsAsRecord*(params: openArray[NimNode],
-                          outputStream, Format, RecordType: NimNode): NimNode =
+                          outputStream, Format, RecordType: NimNode): NimNode {.raises: [Exception].} =
   if params.len == 0:
     return newStmtList()
 
@@ -665,7 +665,7 @@ proc writeParamsAsRecord*(params: openArray[NimNode],
 proc useStandardBody*(sendProc: SendProc,
                       preSerializationStep: proc(stream: NimNode): NimNode,
                       postSerializationStep: proc(stream: NimNode): NimNode,
-                      sendCallGenerator: proc (peer, bytes: NimNode): NimNode) =
+                      sendCallGenerator: proc (peer, bytes: NimNode): NimNode) {.raises: [Exception].} =
   let
     msg = sendProc.msg
     msgBytes = ident "msgBytes"
@@ -723,7 +723,7 @@ proc correctSerializerProcParams(params: NimNode) =
   # 3. The timeout param is removed
   params.del(params.len - 1)
 
-proc createSerializer*(msg: Message, procType = nnkProcDef): NimNode =
+proc createSerializer*(msg: Message, procType = nnkProcDef): NimNode {.raises: [Exception].} =
   var serializer = msg.createSendProc(procType, nameSuffix = "Serializer")
   correctSerializerProcParams serializer.def.params
 
@@ -789,7 +789,7 @@ proc netInit*(p: P2PProtocol): NimNode =
 
 proc createHandshakeTemplate*(msg: Message,
                               rawSendProc, handshakeImpl,
-                              nextMsg: NimNode): SendProc =
+                              nextMsg: NimNode): SendProc {.raises: [Exception].} =
   let
     handshakeExchanger = msg.createSendProc(procType = nnkTemplateDef)
     forwardCall = newCall(rawSendProc).appendAllInputParams(handshakeExchanger.def)
@@ -818,7 +818,7 @@ proc peerInit*(p: P2PProtocol): NimNode =
                             p.backend.PeerType,
                             p.PeerStateType)
 
-proc processProtocolBody*(p: P2PProtocol, protocolBody: NimNode) =
+proc processProtocolBody*(p: P2PProtocol, protocolBody: NimNode) {.raises: [Exception].} =
   ## This procs handles all DSL statements valid inside a p2pProtocol.
   ##
   ## It will populate the protocol's fields such as:
@@ -941,7 +941,7 @@ proc genTypeSection*(p: P2PProtocol): NimNode =
       result.add quote do:
         template msgId*(`MSG`: type `msgStrongRecName`): int = `msgId`
 
-proc genCode*(p: P2PProtocol): NimNode =
+proc genCode*(p: P2PProtocol): NimNode {.raises: [Exception].} =
   for msg in p.messages:
     p.backend.implementMsg msg
 
@@ -1012,7 +1012,7 @@ macro emitForSingleBackend(
     # IO error so the generated nim code might not be stored, don't sweat it.
     discard
 
-macro emitForAllBackends(backendSyms: typed, options: untyped, body: untyped): untyped =
+macro emitForAllBackends(backendSyms: typed, options: untyped, body: untyped): untyped {.raises: [Exception].} =
   let name = $(options[0])
 
   var backends = newSeq[NimNode]()
