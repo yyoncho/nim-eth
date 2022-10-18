@@ -5,7 +5,7 @@ var
 # Nim to not consider them GcSafe violations:
 template allProtocols*: auto = {.gcsafe.}: gProtocols
 
-proc getState*(peer: Peer, proto: ProtocolInfo): RootRef =
+proc getState*(peer: Peer, proto: ProtocolInfo): BasePeerState =
   peer.protocolStates[proto.index]
 
 template state*(peer: Peer, Protocol: type): untyped =
@@ -13,15 +13,15 @@ template state*(peer: Peer, Protocol: type): untyped =
   ## particular connection.
   mixin State
   bind getState
-  cast[Protocol.State](getState(peer, Protocol.protocolInfo))
+  (Protocol.State) getState(peer, Protocol.protocolInfo)
 
-proc getNetworkState*(node: EthereumNode, proto: ProtocolInfo): RootRef =
+proc getNetworkState*(node: EthereumNode, proto: ProtocolInfo): BaseNetworkState =
   node.protocolStates[proto.index]
 
 template protocolState*(node: EthereumNode, Protocol: type): untyped =
   mixin NetworkState
   bind getNetworkState
-  cast[Protocol.NetworkState](getNetworkState(node, Protocol.protocolInfo))
+  (Protocol.NetworkState) getNetworkState(node, Protocol.protocolInfo)
 
 template networkState*(connection: Peer, Protocol: type): untyped =
   ## Returns the network state object of a particular protocol for a

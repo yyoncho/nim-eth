@@ -118,6 +118,9 @@ type
   P2PBackendError* = object of CatchableError
   InvalidMsgError* = object of P2PBackendError
 
+  BasePeerState* = ref object of RootObj
+  BaseNetworkState* = ref object of RootObj
+
 const
   defaultReqTimeout = 10.seconds
   tracingEnabled = defined(p2pdump)
@@ -185,17 +188,17 @@ when tracingEnabled:
                         `protocolInfo`, `msgName`,
                         getOutput(`tracerStream`, string))
 
-proc createPeerState[Peer, ProtocolState](peer: Peer): RootRef =
+proc createPeerState[Peer, ProtocolState](peer: Peer): BasePeerState =
   var res = new ProtocolState
   mixin initProtocolState
   initProtocolState(res, peer)
-  return cast[RootRef](res)
+  BasePeerState res
 
-proc createNetworkState[NetworkNode, NetworkState](network: NetworkNode): RootRef {.gcsafe.} =
+proc createNetworkState[NetworkNode, NetworkState](network: NetworkNode): BaseNetworkState {.gcsafe.} =
   var res = new NetworkState
   mixin initProtocolState
   initProtocolState(res, network)
-  return cast[RootRef](res)
+  BaseNetworkState res
 
 proc expectBlockWithProcs*(n: NimNode): seq[NimNode] =
   template helperName: auto = $n[0]
