@@ -1,3 +1,5 @@
+mode = ScriptMode.Verbose
+
 version       = "1.0.0"
 author        = "Status Research & Development GmbH"
 description   = "Ethereum Common library"
@@ -18,78 +20,69 @@ requires "nim >= 1.2.0",
          "testutils",
          "unittest2"
 
-let styleCheckStyle =
-  if (NimMajor, NimMinor) < (1, 6):
-    "hint"
-  else:
-    "error"
+let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
+let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)
+let flags = getEnv("NIMFLAGS", "") # Extra flags for the compiler
+let verbose = getEnv("V", "") notin ["", "0"]
 
-let commonParams =
-  " --skipUserCfg:on" &
-  " --verbosity:0 --hints:off" &
-  " --warning[ObservableStores]:off " &
+let styleCheckStyle = if (NimMajor, NimMinor) < (1, 6): "hint" else: "error"
+let cfg =
   " --styleCheck:usages --styleCheck:" & styleCheckStyle &
-  " " & getEnv("NIMFLAGS") &
-  " -d:chronosStrictException" &
-  " -d:chronicles_log_level=TRACE"
+  (if verbose: "" else: " --verbosity:0 --hints:off") &
+  " --skipParentCfg --skipUserCfg --outdir:build --nimcache:build/nimcache -f" &
+  " -d:nimOldCaseObjects -d:chronosStrictException -d:chronicles_log_level=TRACE"
 
-proc runTest(path: string, release: bool = true) =
-  echo "\nBuilding and running: ", path
-  let releaseMode = if release: " -d:release" else: ""
+proc build(args, path: string) =
+  exec nimc & " " & lang & " " & cfg & " " & flags & " " & args & " " & path
 
-  exec "nim c -r" &
-    releaseMode & commonParams & " " & path
-  rmFile path
-
-proc buildBinary(path: string) =
-  echo "\nBuilding: ", path
-  exec "nim c -d:release" & commonParams &
-    " --warning[CaseTransition]:off" &
-    " " & path
+proc run(args, path: string) =
+  build args & " -r", path
 
 task test_keyfile, "Run keyfile tests":
-  runTest("tests/keyfile/all_tests")
+  run "-d:release", "tests/keyfile/all_tests"
 
 task test_keys, "Run keys tests":
-  runTest("tests/keys/all_tests")
+  run "-d:release", "tests/keys/all_tests"
 
 task test_discv5, "Run discovery v5 tests":
-  runTest("tests/p2p/all_discv5_tests")
+  run "-d:release", "tests/p2p/all_discv5_tests"
 
 task test_discv4, "Run discovery v4 tests":
-  runTest("tests/p2p/test_discovery")
+  run "-d:release", "tests/p2p/test_discovery"
 
 task test_p2p, "Run p2p tests":
-  runTest("tests/p2p/all_tests")
+  run "-d:release", "tests/p2p/all_tests"
 
 task test_rlp, "Run rlp tests":
   # workaround for github action CI
   # mysterious crash on windows-2019 64bit mode
   # cannot reproduce locally on windows-2019
   # running in virtualbox
-  let releaseMode = if existsEnv"PLATFORM":
-                      getEnv"PLATFORM" != "windows-amd64"
-                    else: true
+  let releaseMode =
+    if existsEnv"PLATFORM" and getEnv"PLATFORM" != "windows-amd64":
+      "-d:debug"
+    else:
+      "-d:release"
 
-  runTest("tests/rlp/all_tests", releaseMode)
+  run releaseMode, "tests/rlp/all_tests"
 
 task test_trie, "Run trie tests":
-  runTest("tests/trie/all_tests")
+  run "-d:release", "tests/trie/all_tests"
 
 task test_db, "Run db tests":
-  runTest("tests/db/all_tests")
+  run "-d:release", "tests/db/all_tests"
 
 task test_utp, "Run utp tests":
-  runTest("tests/utp/all_utp_tests")
+  run "-d:release", "tests/utp/all_utp_tests"
 
 task test_common, "Run common tests":
-  runTest("tests/common/test_eth_types")
+  run "-d:release", "tests/common/test_eth_types"
 
 task test, "Run all tests":
   for filename in [
       "test_bloom",
     ]:
-    runTest("tests/" & filename)
+    run "-d:release", "tests/" & filename
 
   test_keyfile_task()
   test_keys_task()
@@ -106,7 +99,7 @@ task test_discv5_full, "Run discovery v5 and its dependencies tests":
   test_discv5_task()
 
 task build_dcli, "Build dcli":
-  buildBinary("eth/p2p/discoveryv5/dcli")
+  build "-d:release", "eth/p2p/discoveryv5/dcli"
 
 import os, strutils
 
@@ -119,4 +112,4 @@ task build_fuzzers, "Build fuzzer test cases":
   # https://github.com/status-im/nim-testutils/blob/master/testutils/fuzzing.nim#L100
   for file in walkDirRec("tests/fuzzing/"):
     if file.endsWith("nim"):
-      buildBinary(file)
+      build "", file
