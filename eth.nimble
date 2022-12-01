@@ -30,7 +30,8 @@ let cfg =
   " --styleCheck:usages --styleCheck:" & styleCheckStyle &
   (if verbose: "" else: " --verbosity:0 --hints:off") &
   " --skipParentCfg --skipUserCfg --outdir:build --nimcache:build/nimcache -f" &
-  " -d:nimOldCaseObjects -d:chronosStrictException -d:chronicles_log_level=TRACE"
+  " -d:nimOldCaseObjects -d:chronosStrictException -d:chronicles_log_level=TRACE" &
+  " --threads:on"
 
 proc build(args, path: string) =
   exec nimc & " " & lang & " " & cfg & " " & flags & " " & args & " " & path
